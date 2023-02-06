@@ -1,14 +1,14 @@
-export type Identifier = string | number | symbol;
-export type UnificationError<T> = {
+export type Ident = string | number | symbol;
+export type UnifyError<T> = {
     kind: 'occurs',
-    identifier: Identifier,
+    identifier: Ident,
     term: T,
     topTerm1?: T,
     topTerm2?: T
 } | {
     kind: 'name-clash',
-    name1: Identifier,
-    name2: Identifier,
+    name1: Ident,
+    name2: Ident,
     term1: T,
     term2: T,
     topTerm1: T,
@@ -23,16 +23,16 @@ export type UnificationError<T> = {
     topTerm2: T
 }
 
-export type UnificationOptions<T> = {
-    extract: (x: T) => { isVar: boolean, x: Identifier, subterms?: T[] },
+export type UnifyOptions<T> = {
+    extract: (x: T) => { isVar: boolean, x: Ident, subterms?: T[] },
     mapChildren?: (x: T, visitChild: (x: T) => T) => T,
-    construct?: (name: Identifier, subterms: T[]) => T,
-    initialSubstitution?: Map<Identifier, T> | [Identifier, T][] | { [k: Identifier]: T };
+    construct?: (name: Ident, subterms: T[]) => T,
+    initialSubstitution?: Map<Ident, T> | [Ident, T][] | { [k: Ident]: T };
     trace?: boolean;
 };
 
 export class Unify<T> {
-    constructor(readonly options: UnificationOptions<T>) {
+    constructor(readonly options: UnifyOptions<T>) {
         if (options.mapChildren == null && options.construct == null)
             throw new Error('Must define one of options.constuct or options.mapChildren.');
         const u = options.initialSubstitution;
@@ -46,9 +46,9 @@ export class Unify<T> {
             this._state = new Map();
     }
 
-    private _state: Map<Identifier, T>;
+    private _state: Map<Ident, T>;
 
-    private _error?: UnificationError<T>;
+    private _error?: UnifyError<T>;
 
     get unfifies() {
         return this._error == null;
@@ -106,7 +106,7 @@ export class Unify<T> {
         return `${String(x)}(${(subterms ?? [])?.map(a0 => this.termToString(a0)).join(', ')})`;
     }
 
-    entries(): [Identifier, T][] {
+    entries(): [Ident, T][] {
         return [...this._state.entries()];
     }
 
@@ -125,15 +125,15 @@ export class Unify<T> {
         throw new Error('Must define one of options.constuct or options.mapChildren.');
     }
 
-    addMapping(x: Identifier, a: T): this {
+    addMapping(x: Ident, a: T): this {
         this.substitute(a);
         this._addMapping(x, a)
         return this;
     }
 
-    private _addMapping(x: Identifier, a: T, topTerm1?: T, topTerm2?: T) {
+    private _addMapping(x: Ident, a: T, topTerm1?: T, topTerm2?: T) {
 
-        const occurs = (x: Identifier, a: T): boolean => {
+        const occurs = (x: Ident, a: T): boolean => {
             const { extract } = this.options;
             const { isVar, x: y, subterms } = extract(a);
             if (isVar) {

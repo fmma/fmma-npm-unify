@@ -1,10 +1,10 @@
-import { Unify, UnificationOptions } from ".";
+import { Unify, UnifyOptions } from ".";
 
 // Terms of the form
 // x ::= <<lowercase string>>
 // F ::= <<uppercase string>>
 // t ::= x | F | F(t, ..., t)
-const options: UnificationOptions<string> = {
+const options: UnifyOptions<string> = {
     trace: true,
     construct: (f, xs) => `${String(f)}(${xs.join(', ')})`,
     extract: x => {
@@ -87,15 +87,6 @@ test("ArityFails", false, u => u
     .unify("F(x)", "F(G(y))")
     .unify("x", "G(y,y)")
 )
-
-export type ConstructorName = any;
-export type Variable = { __x: string };
-export type TermConstructor = { __c: any, __a: Term[] };
-export type Term = Variable | TermConstructor;
-
-export function isVar(x: Term): x is Variable {
-    return !!(x as Variable).__x;
-}
 
 let nFailed = 0;
 function test(name: string, expectUnifies: boolean, f: (u: Unify<string>) => void, a?: string, b?: string) {
