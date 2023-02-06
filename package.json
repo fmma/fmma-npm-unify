@@ -1,0 +1,27 @@
+{
+  "name": "@fmma-npm/unify",
+  "version": "1.0.0",
+  "description": "Unification algorithm",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "test": "tsc -p src && node lib\\test.js",
+    "prepublish": "tsc -p src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fmma/unify.git"
+  },
+  "keywords": [
+    "unification"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fmma/unify/issues"
+  },
+  "homepage": "https://github.com/fmma/unify#readme",
+  "files": [
+    "lib"
+  ]
+}
