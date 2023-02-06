@@ -109,10 +109,10 @@ export class Unify<T> {
             return this._state.get(x) ?? a
         }
 
-        if (construct != null)
-            return construct(x, (subterms ?? []).map(a0 => this.substitute(a0)))
-        else if (mapChildren != null)
+        if (mapChildren != null)
             return mapChildren(a, a0 => this.substitute(a0));
+        else if (construct != null)
+            return construct(x, (subterms ?? []).map(a0 => this.substitute(a0)))
         throw new Error('Must define one of options.constuct or options.mapChildren.');
     }
 
