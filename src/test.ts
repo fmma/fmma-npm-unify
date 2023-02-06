@@ -56,28 +56,37 @@ const options: UnificationOptions<string> = {
 }
 
 
-test("TestWorks", u => u
+test("TestWorks", true, u => u
     .unify("z", "F(a,a)"),
     "F(x, x, x)", "F(y, G(y0, y0), G(z, z))"
 );
 
 function exponentialCase(n: number) {
-    test("TestExponential" + n, u => {
-        for(let i = 0; i < n; ++i) {
+    test("TestExponential" + n, true, u => {
+        for(let i = n; i > 0; --i) {
             u.unify(`x${i}`, `G(x${i + 1}, x${i + 1})`);
         }
-    })
+    }, `x0`, `G(x1, x1)`)
 }
 exponentialCase(1);
 exponentialCase(4);
 exponentialCase(7);
 
-test("TestOccursFails", u => u
+test("TestOccursFails", false, u => u
     .unify("w", "F(G(A, B, x))")
     .unify("x", "H(y)")
     .unify("z", "Foo(w, w)")
     .unify("y", "Q(A, B, z)")
 );
+test("NameClashFails", false, u => u
+    .unify("F(x)", "F(G(y))")
+    .unify("x", "H(y)")
+)
+
+test("ArityFails", false, u => u
+    .unify("F(x)", "F(G(y))")
+    .unify("x", "G(y,y)")
+)
 
 export type ConstructorName = any;
 export type Variable = { __x: string };
@@ -88,7 +97,8 @@ export function isVar(x: Term): x is Variable {
     return !!(x as Variable).__x;
 }
 
-function test(name: string, f: (u: Unify<string>) => void, a?: string, b?: string) {
+let nFailed = 0;
+function test(name: string, expectUnifies: boolean, f: (u: Unify<string>) => void, a?: string, b?: string) {
 
     console.log('=', name,'==================================================')
     const unify = new Unify(options);
@@ -107,5 +117,16 @@ function test(name: string, f: (u: Unify<string>) => void, a?: string, b?: strin
         const string = unify.termToString(a0);
         console.log('Unified terms do unify:', string === unify.termToString(b0), string);
     }
+    if(expectUnifies === unify.unfifies)
+        console.log('TEST SUCCESSFUL')
+    else {
+        console.error('TEST FAILED')
+        nFailed++;
+    }
+}
 
+if(nFailed === 0)
+    console.info('ALL TEST SUCCESSFUL');
+else {
+    console.error(nFailed + " TEST(S) FAILED");
 }

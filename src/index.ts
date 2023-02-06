@@ -57,7 +57,7 @@ export class Unify<T> {
     errorString(): string {
         const { _error} = this;
         switch(_error?.kind) {
-            case 'occurs':
+            case 'occurs': {
                 const x = String(_error.identifier);
                 const a = this.termToString(_error.term);
                 if(_error.topTerm1 != null && _error.topTerm2 != null ) {
@@ -67,8 +67,17 @@ export class Unify<T> {
                         return `Occurs check failed. ${x} occurs in ${a} (in ${t1} == ${t2}).`
                 }
                 return `Occurs check failed. ${x} occurs in ${a}.`;
+            }
             case 'arity':
-            case 'name-clash': `Failed to unify ${this.termToString(_error.term1)} and ${this.termToString(_error.term2)}.`
+            case 'name-clash': {
+                const a = this.termToString(_error.term1);
+                const b = this.termToString(_error.term2);
+                const t1 = this.termToString(_error.topTerm1);
+                const t2 = this.termToString(_error.topTerm2);
+                if(t1 !== a || t2 !== b)
+                    return `Failed to unify ${a} and ${b} (in ${t1} == ${t2}).`
+                return `Failed to unify ${a} and ${b}.`
+            }
             default: return '';
         }
     }
