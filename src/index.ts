@@ -117,6 +117,7 @@ export class Unify<T> {
     }
 
     addMapping(x: Identifier, a: T): this {
+        this.substitute(a);
         this._addMapping(x, a)
         return this;
     }
