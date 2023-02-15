@@ -26,6 +26,7 @@ export type UnifyError<T> = {
 export type UnifyOptions<T> = {
     extract: (x: T) => { isVar: boolean, x: Ident, subterms?: T[] },
     mapChildren?: (x: T, visitChild: (x: T) => T) => T,
+    substitute?: (x: T, u: Map<Ident, T>) => T,
     construct?: (name: Ident, subterms: T[]) => T,
     initialSubstitution?: Map<Ident, T> | [Ident, T][] | { [k: Ident]: T };
     trace?: boolean;
@@ -33,8 +34,8 @@ export type UnifyOptions<T> = {
 
 export class Unify<T> {
     constructor(readonly options: UnifyOptions<T>) {
-        if (options.mapChildren == null && options.construct == null)
-            throw new Error('Must define one of options.constuct or options.mapChildren.');
+        if (options.mapChildren == null && options.construct == null && options.substitute == null)
+            throw new Error('Must define one of options.constuct, options.mapChildren or options.substitute.');
         const u = options.initialSubstitution;
         if (u instanceof Map)
             this._state = u;
@@ -111,7 +112,10 @@ export class Unify<T> {
     }
 
     substitute(a: T): T {
-        const { extract, mapChildren, construct } = this.options;
+        const { extract, mapChildren, construct, substitute } = this.options;
+
+        if(substitute)
+            return substitute(a, this._state);
 
         const { isVar, x, subterms } = extract(a);
         if (isVar) {
