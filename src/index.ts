@@ -21,10 +21,17 @@ export type UnifyError<T> = {
     term2: T,
     topTerm1: T,
     topTerm2: T
+} | {
+    kind: 'missing-label',
+    labelSubTerms1: Map<string, T>,
+    labelSubTerms2: Map<string, T>,
+    topTerm1?: T,
+    topTerm2?: T
 }
 
 export type UnifyOptions<T> = {
-    extract: (x: T) => { isVar: boolean, x: Ident, subterms?: T[] },
+    extract: (x: T) => { isVar: boolean, x: Ident, subterms?: T[], labelledSubterms?: Map<string, T>, row?: T },
+    createRowType?: (labelledTerms: Map<string, T>) => T,
     mapChildren?: (x: T, visitChild: (x: T) => T) => T,
     substitute?: (x: T, u: Map<Ident, T>) => T,
     construct?: (name: Ident, subterms: T[]) => T,
@@ -56,15 +63,15 @@ export class Unify<T> {
     }
 
     errorString(): string {
-        const { _error} = this;
-        switch(_error?.kind) {
+        const { _error } = this;
+        switch (_error?.kind) {
             case 'occurs': {
                 const x = String(_error.identifier);
                 const a = this.termToString(_error.term);
-                if(_error.topTerm1 != null && _error.topTerm2 != null ) {
+                if (_error.topTerm1 != null && _error.topTerm2 != null) {
                     const t1 = this.termToString(_error.topTerm1);
                     const t2 = this.termToString(_error.topTerm2);
-                    if(t1 !== x || t2 !== a)
+                    if (t1 !== x || t2 !== a)
                         return `Occurs check failed. ${x} occurs in ${a} (in ${t1} == ${t2}).`
                 }
                 return `Occurs check failed. ${x} occurs in ${a}.`;
@@ -75,7 +82,7 @@ export class Unify<T> {
                 const b = this.termToString(_error.term2);
                 const t1 = this.termToString(_error.topTerm1);
                 const t2 = this.termToString(_error.topTerm2);
-                if(t1 !== a || t2 !== b)
+                if (t1 !== a || t2 !== b)
                     return `Failed to unify ${a} and ${b} (in ${t1} == ${t2}).`
                 return `Failed to unify ${a} and ${b}.`
             }
@@ -114,7 +121,7 @@ export class Unify<T> {
     substitute(a: T): T {
         const { extract, mapChildren, construct, substitute } = this.options;
 
-        if(substitute)
+        if (substitute)
             return substitute(a, this._state);
 
         const { isVar, x, subterms } = extract(a);
@@ -174,7 +181,7 @@ export class Unify<T> {
     }
 
     unify(term1: T, term2: T): this {
-        const { extract, trace } = this.options;
+        const { extract, trace, createRowType } = this.options;
         const stack: [T, T, number][] = [[term1, term2, 0]];
 
         let entry: [T, T, number] | undefined;
@@ -186,8 +193,8 @@ export class Unify<T> {
             const a = this.substitute(entry[0]);
             const b = this.substitute(entry[1]);
 
-            const { isVar: isVarA, x, subterms: as } = extract(a);
-            const { isVar: isVarB, x: y, subterms: bs } = extract(b);
+            const { isVar: isVarA, x, subterms: as, labelledSubterms: amap, row: arow } = extract(a);
+            const { isVar: isVarB, x: y, subterms: bs, labelledSubterms: bmap, row: brow } = extract(b);
             const as1 = as ?? [];
             const bs1 = bs ?? [];
 
@@ -229,10 +236,41 @@ export class Unify<T> {
                 stack.push([as1[i], bs1[i], entry[2] + 1]);
             }
 
+            const unique1: Map<string, T> = new Map();
+            const unique2 = new Map(bmap);
+            for (const [x, a0] of amap?.entries() ?? []) {
+                const b0 = unique2.get(x);
+                if (b0 == null) {
+                    unique1.set(x, a0);
+                }
+                else {
+                    unique2.delete(x);
+                    this.unify(a0, b0);
+                }
+            }
+            if (createRowType && arow && brow) {
+                if (unique1.size > 0) {
+                    this.unify(brow, createRowType(unique1))
+                }
+                if (unique2.size > 0)
+                    this.unify(arow, createRowType(unique2))
+            }
+            else {
+                if (unique1.size > 0 || unique2.size > 0) {
+                    this._error = {
+                        kind: 'missing-label',
+                        labelSubTerms1: unique1,
+                        labelSubTerms2: unique2,
+                        topTerm1: term1,
+                        topTerm2: term2
+                    }
+                }
+            }
+
             if (trace) {
                 const indent = " ".repeat(entry[2] * 2);
                 console.log(`${indent}UNIFY`, this.termToString(a), "==", this.termToString(b));
-                if(unificationChanged)
+                if (unificationChanged)
                     console.log(`${indent}\\` + this.toString(`\n${indent} `));
             }
         }

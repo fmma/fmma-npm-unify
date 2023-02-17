@@ -88,6 +88,9 @@ test("ArityFails", false, u => u
     .unify("x", "G(y,y)")
 )
 
+test("Bug1", true, u => u
+    .unify("F(x,x)", "F(Number,y)"));
+
 let nFailed = 0;
 function test(name: string, expectUnifies: boolean, f: (u: Unify<string>) => void, a?: string, b?: string) {
 
