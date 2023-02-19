@@ -113,7 +113,7 @@ export class Unify<T> {
 
         const args = [
             ...(subterms ?? [])?.map(a0 => this.termToString(a0)),
-            ...[...labelledSubterms?.entries() ?? []].map(([x, a0]) => `x: ${this.termToString(a0)}`),
+            ...[...labelledSubterms?.entries() ?? []].map(([x, a0]) => `${x}: ${this.termToString(a0)}`),
             ...row == null ? [] : [this.termToString(row)]
         ];
         return `${String(x)}(${args.join(', ')})`;
