@@ -31,18 +31,14 @@ export type UnifyError<T> = {
 
 export type UnifyOptions<T> = {
     extract: (x: T) => { isVar: boolean, x: Ident, subterms?: T[], labelledSubterms?: Map<string, T>, row?: T },
-    createRowType?: (labelledTerms: Map<string, T>) => T,
-    mapChildren?: (x: T, visitChild: (x: T) => T) => T,
-    substitute?: (x: T, u: Map<Ident, T>) => T,
-    construct?: (name: Ident, subterms: T[]) => T,
+    createRowType?: (x: T, labelledTerms: Set<string>) => T,
+    substitute: (x: T, u: Map<Ident, T>) => T,
     initialSubstitution?: Map<Ident, T> | [Ident, T][] | { [k: Ident]: T };
     trace?: boolean;
 };
 
 export class Unify<T> {
     constructor(readonly options: UnifyOptions<T>) {
-        if (options.mapChildren == null && options.construct == null && options.substitute == null)
-            throw new Error('Must define one of options.constuct, options.mapChildren or options.substitute.');
         const u = options.initialSubstitution;
         if (u instanceof Map)
             this._state = u;
@@ -124,21 +120,9 @@ export class Unify<T> {
     }
 
     substitute(a: T): T {
-        const { extract, mapChildren, construct, substitute } = this.options;
+        const { substitute } = this.options;
 
-        if (substitute)
-            return substitute(a, this._state);
-
-        const { isVar, x, subterms } = extract(a);
-        if (isVar) {
-            return this._state.get(x) ?? a
-        }
-
-        if (mapChildren != null)
-            return mapChildren(a, a0 => this.substitute(a0));
-        else if (construct != null)
-            return construct(x, (subterms ?? []).map(a0 => this.substitute(a0)))
-        throw new Error('Must define one of options.constuct or options.mapChildren.');
+        return substitute(a, this._state);
     }
 
     addMapping(x: Ident, a: T): this {
@@ -237,37 +221,55 @@ export class Unify<T> {
                     topTerm2: term2
                 };
             }
-            else for (let i = as1.length - 1; i >= 0 && this._error == null; --i) {
-                stack.push([as1[i], bs1[i], entry[2] + 1]);
-            }
+            else {
+                for (let i = as1.length - 1; i >= 0 && this._error == null; --i) {
+                    stack.push([as1[i], bs1[i], entry[2] + 1]);
+                }
 
-            const unique1: Map<string, T> = new Map();
-            const unique2 = new Map(bmap);
-            for (const [x, a0] of amap?.entries() ?? []) {
-                const b0 = unique2.get(x);
-                if (b0 == null) {
-                    unique1.set(x, a0);
+                const unique1: Map<string, T> = new Map();
+                const unique2 = new Map(bmap);
+                for (const [x, a0] of amap?.entries() ?? []) {
+                    const b0 = unique2.get(x);
+                    if (b0 == null) {
+                        unique1.set(x, a0);
+                    }
+                    else {
+                        unique2.delete(x);
+                        stack.push([a0, b0, entry[2] + 1]);
+                    }
+                }
+                if (createRowType && arow && brow) {
+
+                    if (unique1.size == 0 && unique2.size == 0)
+                        stack.push([arow, brow, entry[2] + 1]);
+                    else {
+
+                        let a_, b_: T | undefined;
+
+                        if (unique1.size > 0) {
+                            a_ = createRowType(a, new Set(unique1.keys()));
+                            stack.push([brow, a_, entry[2] + 1]);
+                        }
+
+                        if (unique2.size > 0) {
+                            b_ = createRowType(b, new Set(unique2.keys()));
+                            stack.push([arow, b_, entry[2] + 1]);
+                        }
+                        const newRowA = a_ == null ? brow : extract(a_).row;
+                        const newRowB = b_ == null ? arow : extract(b_).row;
+                        if (newRowA && newRowB)
+                            stack.push([newRowA, newRowB, entry[2] + 1]);
+                    }
                 }
                 else {
-                    unique2.delete(x);
-                    this.unify(a0, b0);
-                }
-            }
-            if (createRowType && arow && brow) {
-                if (unique1.size > 0) {
-                    this.unify(brow, createRowType(unique1))
-                }
-                if (unique2.size > 0)
-                    this.unify(arow, createRowType(unique2))
-            }
-            else {
-                if (unique1.size > 0 || unique2.size > 0) {
-                    this._error = {
-                        kind: 'missing-label',
-                        labelSubTerms1: unique1,
-                        labelSubTerms2: unique2,
-                        topTerm1: term1,
-                        topTerm2: term2
+                    if (unique1.size > 0 || unique2.size > 0) {
+                        this._error = {
+                            kind: 'missing-label',
+                            labelSubTerms1: unique1,
+                            labelSubTerms2: unique2,
+                            topTerm1: term1,
+                            topTerm2: term2
+                        }
                     }
                 }
             }

@@ -1,6 +1,6 @@
 {
   "name": "@fmma-npm/unify",
-  "version": "2.2.3",
+  "version": "3.0.0",
   "description": "Unification algorithm",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
