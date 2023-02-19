@@ -106,12 +106,17 @@ export class Unify<T> {
 
     termToString(a: T): string {
         const { extract } = this.options;
-        const { isVar, x, subterms } = extract(a);
+        const { isVar, x, subterms, labelledSubterms, row } = extract(a);
         if (isVar) {
             return String(x);
         }
 
-        return `${String(x)}(${(subterms ?? [])?.map(a0 => this.termToString(a0)).join(', ')})`;
+        const args = [
+            ...(subterms ?? [])?.map(a0 => this.termToString(a0)),
+            ...[...labelledSubterms?.entries() ?? []].map(([x, a0]) => `x: ${this.termToString(a0)}`),
+            ...row == null ? [] : [this.termToString(row)]
+        ];
+        return `${String(x)}(${args.join(', ')})`;
     }
 
     entries(): [Ident, T][] {
