@@ -1,5 +1,8 @@
 import { Ident, Unify, UnifyOptions } from ".";
 
+
+let only: string |undefined;
+
 const construct = (f: Ident, xs: string[], xmap: Map<string, string>, r?: string) => `${String(f)}(${[
     ...xs,
     ...[...xmap.entries()].sort((a,b) => a[0] < b[0] ? -1 : a[0] === b[0] ? 0 : 1).map(([x,a])=>`${x} : ${a}`),
@@ -12,6 +15,7 @@ const construct = (f: Ident, xs: string[], xmap: Map<string, string>, r?: string
 // t ::= x | F | F(t, ..., t)
 
 let i = 0;
+const failed = new Set<string>
 const options: UnifyOptions<string> = {
     trace: true,
     substitute: (a, u) => {
@@ -43,8 +47,12 @@ const options: UnifyOptions<string> = {
         return construct(x, subterms ?? [], labelledSubterms ?? new Map(), row);
     },
     createRowType: (x, keys) => {
-        let {x: f, labelledSubterms: xmap} = options.extract(x);
-        return `${String(f)}(${[...xmap?.entries() ?? []].filter(x => keys.has(x[0])).map(([y,a]) => `${y}: ${a}`).join(',')}, rr${i++})`;
+        let {x: f, subterms, labelledSubterms: xmap, row} = options.extract(x);
+        return `${String(f)}(${[
+            ...subterms ?? [],
+            ...[...xmap?.entries() ?? []].filter(x => keys.has(x[0])).map(([y,a]) => `${y}: ${a}`),
+            ...row == null ? [] : [`${row}'`]
+        ].join(',')})`;
     },
     extract: x => {
         x = x.trim();
@@ -150,12 +158,44 @@ test("ArityFails", false, u => u
 test("Bug1", true, u => u
     .unify("F(x,x)", "F(Number,y)"));
 
-test("Row", true, u => u,
+test("Row1", true, u => u,
     "F(foo:x, r1)", "F(bar:y, foo:F(y), r2)"
 );
 
-let nFailed = 0;
+test("RowOccurs", false, u => u,
+    "x", "F(foo:x)"
+);
+
+test("RowMany", true, u => u
+    .unify("x", "F(foo:z,r1)")
+    .unify("x", "F(bar:z,r2)")
+    .unify("x", "F(baz:z,r3)")
+    .unify("x", "F(xxx:z, yyy: z, r4)"),
+    "x", "F(zzz:z, r5)"
+);
+
+test("Row2", true, u => u,
+    "F(x, foo:x, bar:y, r1)", "F(y, bar:x, foo:y, r2)"
+);
+
+test("RowNoRowVar", true, u => u,
+    "F(foo:x, bar:F(z,z,z))", "F(bar:x, foo:y)"
+);
+
+test("RowNoRowVarFails", false, u => u,
+    "F(foo:x, bar:y, baz:z)", "F(bar:x, foo:y)"
+);
+
+test("RowFail", false, u => u
+    .unify("F(foo:x, r1)", "F(bar:y, foo:F(y), r2)")
+    .unify("G(y)", "x")
+);
+
+
 function test(name: string, expectUnifies: boolean, f: (u: Unify<string>) => void, a?: string, b?: string) {
+
+    if(only && !name.includes(only))
+        return;
 
     console.log('=', name, '==================================================')
     const unify = new Unify(options);
@@ -174,19 +214,19 @@ function test(name: string, expectUnifies: boolean, f: (u: Unify<string>) => voi
         const string2 = unify.termToString(b0);
         const doUnify = string1 === string2;
         console.log('Unified terms do unify:', doUnify, string1, string2);
-        if(!doUnify)
-            nFailed++;
+        if(doUnify !== expectUnifies)
+            failed.add(name);
     }
     if (expectUnifies === unify.unfifies)
         console.log('TEST SUCCESSFUL')
     else {
         console.error('TEST FAILED')
-        nFailed++;
+        failed.add(name);
     }
 }
 
-if (nFailed === 0)
+if (failed.size === 0)
     console.info('ALL TEST SUCCESSFUL');
 else {
-    console.error(nFailed + " TEST(S) FAILED");
+    console.error("TEST(S) FAILED:\n", [...failed].join('\n'));
 }

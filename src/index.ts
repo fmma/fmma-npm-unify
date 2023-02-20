@@ -135,11 +135,16 @@ export class Unify<T> {
 
         const occurs = (x: Ident, a: T): boolean => {
             const { extract } = this.options;
-            const { isVar, x: y, subterms } = extract(a);
+            const { isVar, x: y, subterms, labelledSubterms, row } = extract(a);
             if (isVar) {
                 return x === y;
             }
-
+            if(labelledSubterms) for(const [_, a0] of labelledSubterms) {
+                if(occurs(x, a0))
+                    return true;
+            }
+            if(row && occurs(x, row))
+                return true;
             return subterms?.some(a0 => occurs(x, a0)) ?? false;
         }
 
@@ -254,6 +259,10 @@ export class Unify<T> {
                         if (unique2.size > 0) {
                             b_ = createRowType(b, new Set(unique2.keys()));
                             stack.push([arow, b_, entry[2] + 1]);
+                        }
+
+                        if(trace) {
+                            const indent = " ".repeat(entry[2] * 2);
                         }
                         const newRowA = a_ == null ? brow : extract(a_).row;
                         const newRowB = b_ == null ? arow : extract(b_).row;
